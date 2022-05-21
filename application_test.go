@@ -8,7 +8,7 @@ import (
 
 func TestNewApplication(t *testing.T) {
 	sp := &TestSp{}
-	app := New([]ServiceProviderInterface{sp})
+	app := New([]ServiceProvider{sp})
 	var dp *TestDependency
 	err := app.Container().Invoke(func(dep *TestDependency) error {
 		dp = dep
@@ -20,7 +20,7 @@ func TestNewApplication(t *testing.T) {
 
 func TestRunApplication(t *testing.T) {
 	sp := &TestSp{}
-	app := New([]ServiceProviderInterface{sp})
+	app := New([]ServiceProvider{sp})
 	err := app.Run()
 	assert.Nil(t, err)
 	var dp *TestDependency
@@ -44,20 +44,20 @@ type TestSp struct {
 	container *dig.Container
 }
 
-func (t TestSp) Provide() []interface{} {
+func (t TestSp) ProvidedServices() []interface{} {
 	return []interface{}{
 		NewTestDependency,
 	}
 }
 
-func (t TestSp) OnStart() []interface{} {
+func (t TestSp) OnStart() error {
 	return nil
 }
 
-func (t TestSp) OnClose() []interface{} {
+func (t TestSp) OnClose() error {
 	return nil
 }
 
-func (t TestSp) setContainer(container *dig.Container) {
+func (t TestSp) SetContainer(container *dig.Container) {
 	t.container = container
 }

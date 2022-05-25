@@ -38,6 +38,7 @@ func (a *Application) Run() error {
 	a.initConfig()
 
 	a.setDefaultLogger()
+	a.setDefaultJsonResponseWriter()
 
 	a.initHttpRoutes()
 
@@ -153,6 +154,20 @@ func (a *Application) setDefaultLogger() {
 		err := a.container.Provide(NewDefaultLogger)
 		if err != nil {
 			panic("Default logger cannot be setup")
+		}
+	}
+}
+
+func (a *Application) setDefaultJsonResponseWriter() {
+	var logger JsonResponseWriter
+	err := a.container.Invoke(func(dep JsonResponseWriter) error {
+		logger = dep
+		return nil
+	})
+	if err != nil || logger == nil {
+		err := a.container.Provide(NewJsonResponse)
+		if err != nil {
+			panic("Default json response writer cannot be setup")
 		}
 	}
 }

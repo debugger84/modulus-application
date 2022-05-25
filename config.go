@@ -68,6 +68,7 @@ func NewConfig() *Config {
 
 func (c *Config) ProvidedServices() []interface{} {
 	return []interface{}{
+		NewActionRunner,
 		func() *Config { return c },
 	}
 }

@@ -1,10 +1,14 @@
 package application
 
-import "net/http"
+import (
+	"net/http"
+	"net/url"
+)
 
 type Router interface {
 	AddRoutes(routes []RouteInfo)
 	Run() error
+	RouteParams(r *http.Request) url.Values
 }
 
 type RouteInfo struct {

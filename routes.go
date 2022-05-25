@@ -1,53 +1,61 @@
 package application
 
-import "net/http"
+import (
+	"context"
+	"net/http"
+)
+
+type Action interface {
+	NewRequestObject() any
+	Handle(ctx context.Context, request any) (any, error)
+}
 
 type Routes struct {
-	routes map[string]RouteInfo
+	routes []RouteInfo
 }
 
 func NewRoutes() *Routes {
-	return &Routes{routes: make(map[string]RouteInfo)}
+	return &Routes{routes: make([]RouteInfo, 0)}
 }
 
-func (r *Routes) Get(name string, path string, handler http.HandlerFunc) {
-	r.routes[name] = RouteInfo{
+func (r *Routes) Get(path string, handler http.HandlerFunc) {
+	r.routes = append(r.routes, RouteInfo{
 		handler: handler,
 		method:  http.MethodGet,
 		path:    path,
-	}
+	})
 }
 
-func (r *Routes) Post(name string, path string, handler http.HandlerFunc) {
-	r.routes[name] = RouteInfo{
+func (r *Routes) Post(path string, handler http.HandlerFunc) {
+	r.routes = append(r.routes, RouteInfo{
 		handler: handler,
 		method:  http.MethodPost,
 		path:    path,
-	}
+	})
 }
 
-func (r *Routes) Delete(name string, path string, handler http.HandlerFunc) {
-	r.routes[name] = RouteInfo{
+func (r *Routes) Delete(path string, handler http.HandlerFunc) {
+	r.routes = append(r.routes, RouteInfo{
 		handler: handler,
 		method:  http.MethodDelete,
 		path:    path,
-	}
+	})
 }
 
-func (r *Routes) Put(name string, path string, handler http.HandlerFunc) {
-	r.routes[name] = RouteInfo{
+func (r *Routes) Put(path string, handler http.HandlerFunc) {
+	r.routes = append(r.routes, RouteInfo{
 		handler: handler,
 		method:  http.MethodPut,
 		path:    path,
-	}
+	})
 }
 
-func (r *Routes) Options(name string, path string, handler http.HandlerFunc) {
-	r.routes[name] = RouteInfo{
+func (r *Routes) Options(path string, handler http.HandlerFunc) {
+	r.routes = append(r.routes, RouteInfo{
 		handler: handler,
 		method:  http.MethodOptions,
 		path:    path,
-	}
+	})
 }
 
 func (r *Routes) AddFromRoutes(routes *Routes) {

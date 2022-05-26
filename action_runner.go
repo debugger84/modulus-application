@@ -13,10 +13,11 @@ type ActionRunner struct {
 	logger     Logger
 	jsonWriter JsonResponseWriter
 	router     Router
+	validator  Validator
 }
 
-func NewActionRunner(logger Logger, jsonWriter JsonResponseWriter, router Router) *ActionRunner {
-	return &ActionRunner{logger: logger, jsonWriter: jsonWriter, router: router}
+func NewActionRunner(logger Logger, jsonWriter JsonResponseWriter, router Router, validator Validator) *ActionRunner {
+	return &ActionRunner{logger: logger, jsonWriter: jsonWriter, router: router, validator: validator}
 }
 
 func (j *ActionRunner) Run(
@@ -100,10 +101,17 @@ func (j *ActionRunner) runAction(
 	action func(ctx context.Context, request any) (any, error),
 	request any,
 ) {
+	validationErr := j.validator.Validate(request)
+	if validationErr != nil {
+		j.jsonWriter.Error(w, r, 400, validationErr)
+		return
+	}
+
 	response, err := action(r.Context(), request)
 
 	if err != nil {
 		j.jsonWriter.Error(w, r, 500, err)
+		return
 	}
 	j.jsonWriter.Success(w, r, 200, response)
 }

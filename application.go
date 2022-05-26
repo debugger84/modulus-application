@@ -39,6 +39,7 @@ func (a *Application) Run() error {
 
 	a.setDefaultLogger()
 	a.setDefaultJsonResponseWriter()
+	a.setDefaultValidator()
 
 	a.initHttpRoutes()
 
@@ -168,6 +169,20 @@ func (a *Application) setDefaultJsonResponseWriter() {
 		err := a.container.Provide(NewJsonResponse)
 		if err != nil {
 			panic("Default json response writer cannot be setup")
+		}
+	}
+}
+
+func (a *Application) setDefaultValidator() {
+	var validator Validator
+	err := a.container.Invoke(func(dep Validator) error {
+		validator = dep
+		return nil
+	})
+	if err != nil || validator == nil {
+		err := a.container.Provide(NewDefaultValidator)
+		if err != nil {
+			panic("Default validator cannot be setup")
 		}
 	}
 }

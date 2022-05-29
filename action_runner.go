@@ -7,13 +7,37 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"regexp"
 )
+
+var qsErrRegexp = regexp.MustCompile(`entry "([^"]+)" :: ([^:]+)`)
 
 type ActionRunner struct {
 	logger     Logger
 	jsonWriter JsonResponseWriter
 	router     Router
 	validator  Validator
+}
+
+type ActionResponse struct {
+	StatusCode      int
+	Response        any
+	Error           *ActionError
+	IsLoggingErrors bool
+}
+
+func NewSuccessResponse(response any) ActionResponse {
+	return ActionResponse{
+		StatusCode: 200,
+		Response:   response,
+	}
+}
+
+func NewSuccessCreationResponse(response any) ActionResponse {
+	return ActionResponse{
+		StatusCode: 201,
+		Response:   response,
+	}
 }
 
 func NewActionRunner(logger Logger, jsonWriter JsonResponseWriter, router Router, validator Validator) *ActionRunner {
@@ -23,7 +47,7 @@ func NewActionRunner(logger Logger, jsonWriter JsonResponseWriter, router Router
 func (j *ActionRunner) Run(
 	w http.ResponseWriter,
 	r *http.Request,
-	action func(ctx context.Context, request any) (any, error),
+	action func(ctx context.Context, request any) ActionResponse,
 	request any,
 ) {
 	switch r.Method {
@@ -41,7 +65,7 @@ func (j *ActionRunner) Run(
 func (j *ActionRunner) runGet(
 	w http.ResponseWriter,
 	r *http.Request,
-	action func(ctx context.Context, request any) (any, error),
+	action func(ctx context.Context, request any) ActionResponse,
 	request any,
 ) {
 	err := j.fillRequestFromUrlValues(w, r, request, j.router.RouteParams(r))
@@ -59,7 +83,7 @@ func (j *ActionRunner) runGet(
 func (j *ActionRunner) runPost(
 	w http.ResponseWriter,
 	r *http.Request,
-	action func(ctx context.Context, request any) (any, error),
+	action func(ctx context.Context, request any) ActionResponse,
 	request any,
 ) {
 	var err error
@@ -81,7 +105,7 @@ func (j *ActionRunner) runPost(
 func (j *ActionRunner) runPut(
 	w http.ResponseWriter,
 	r *http.Request,
-	action func(ctx context.Context, request any) (any, error),
+	action func(ctx context.Context, request any) ActionResponse,
 	request any,
 ) {
 	var err error
@@ -98,22 +122,22 @@ func (j *ActionRunner) runPut(
 func (j *ActionRunner) runAction(
 	w http.ResponseWriter,
 	r *http.Request,
-	action func(ctx context.Context, request any) (any, error),
+	action func(ctx context.Context, request any) ActionResponse,
 	request any,
 ) {
 	validationErr := j.validator.Validate(request)
 	if validationErr != nil {
-		j.jsonWriter.Error(w, r, 400, validationErr)
+		j.jsonWriter.Error(w, r, NewValidationError(r.Context(), validationErr))
 		return
 	}
 
-	response, err := action(r.Context(), request)
+	response := action(r.Context(), request)
 
-	if err != nil {
-		j.jsonWriter.Error(w, r, 500, err)
+	if response.Error != nil {
+		j.jsonWriter.Error(w, r, response)
 		return
 	}
-	j.jsonWriter.Success(w, r, 200, response)
+	j.jsonWriter.Success(w, r, response)
 }
 
 func (j *ActionRunner) fillRequestFromBody(
@@ -138,8 +162,7 @@ func (j *ActionRunner) fillRequestFromBody(
 		err = json.Unmarshal(body, request)
 	}
 	if err != nil {
-		j.logger.Error(r.Context(), "Wrong request decoding: "+err.Error())
-		j.jsonWriter.Error(w, r, 400, err)
+		j.jsonWriter.Error(w, r, NewServerError(r.Context(), WrongRequestDecoding, err))
 		return err
 	}
 
@@ -157,10 +180,25 @@ func (j *ActionRunner) fillRequestFromUrlValues(
 	}
 	err := qs.Unmarshal(request, values.Encode())
 	if err != nil {
-		j.logger.Error(r.Context(), "Wrong request decoding: "+err.Error())
-		j.jsonWriter.Error(w, r, 400, err)
+		resp := j.parseQsError(r.Context(), err)
+		j.jsonWriter.Error(w, r, resp)
 		return err
 	}
 
 	return nil
+}
+
+func (j *ActionRunner) parseQsError(ctx context.Context, err error) ActionResponse {
+	vErr := ValidationError{
+		field: "",
+		err:   "Wrong format",
+	}
+	entries := qsErrRegexp.FindStringSubmatch(err.Error())
+	if len(entries) > 1 {
+		vErr.field = entries[1]
+		if len(entries) > 2 && entries[2] == "strconv.ParseInt" {
+			vErr.err = "Should be integer"
+		}
+	}
+	return NewValidationError(ctx, []ValidationError{vErr})
 }

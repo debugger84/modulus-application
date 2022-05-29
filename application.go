@@ -166,7 +166,7 @@ func (a *Application) setDefaultJsonResponseWriter() {
 		return nil
 	})
 	if err != nil || logger == nil {
-		err := a.container.Provide(NewJsonResponse)
+		err := a.container.Provide(NewJsonResponseWriter)
 		if err != nil {
 			panic("Default json response writer cannot be setup")
 		}

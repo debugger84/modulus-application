@@ -6,24 +6,24 @@ import (
 )
 
 type JsonResponseWriter interface {
-	Success(w http.ResponseWriter, r *http.Request, statusCode int, response interface{})
-	Error(w http.ResponseWriter, r *http.Request, statusCode int, err error)
+	Success(w http.ResponseWriter, r *http.Request, response ActionResponse)
+	Error(w http.ResponseWriter, r *http.Request, response ActionResponse)
 }
 
-type JsonResponse struct {
+type DefaultJsonResponseWriter struct {
 	logger Logger
 	config *Config
 }
 
-func NewJsonResponse(logger Logger, config *Config) JsonResponseWriter {
-	return &JsonResponse{logger: logger, config: config}
+func NewJsonResponseWriter(logger Logger, config *Config) JsonResponseWriter {
+	return &DefaultJsonResponseWriter{logger: logger, config: config}
 }
 
-func (j *JsonResponse) Success(w http.ResponseWriter, r *http.Request, statusCode int, response interface{}) {
-	w.WriteHeader(statusCode)
+func (j *DefaultJsonResponseWriter) Success(w http.ResponseWriter, r *http.Request, response ActionResponse) {
+	w.WriteHeader(response.StatusCode)
 	w.Header().Set("Content-Type", "application/json")
 
-	jsonResp, err := json.Marshal(response)
+	jsonResp, err := json.Marshal(response.Response)
 	if err != nil {
 		ctx := r.Context()
 		j.logger.Error(ctx, "Error happened in JSON marshal. Err: %s", err)
@@ -32,12 +32,23 @@ func (j *JsonResponse) Success(w http.ResponseWriter, r *http.Request, statusCod
 	return
 }
 
-func (j *JsonResponse) Error(w http.ResponseWriter, r *http.Request, statusCode int, err error) {
-	w.WriteHeader(statusCode)
+func (j *DefaultJsonResponseWriter) Error(w http.ResponseWriter, r *http.Request, response ActionResponse) {
+	w.WriteHeader(response.StatusCode)
 	w.Header().Set("Content-Type", "application/json")
 
-	resp := make(map[string]string)
-	resp["error"] = err.Error()
+	resp := make(map[string]interface{})
+	resp["error"] = "Unknown error"
+	if response.Error != nil {
+		resp["error"] = response.Error.Error()
+	}
+
+	if len(response.Error.ValidationErrors) > 0 {
+		vErrors := make(map[string]string)
+		for _, validationError := range response.Error.ValidationErrors {
+			vErrors[validationError.field] = validationError.err
+		}
+		resp["errors"] = vErrors
+	}
 
 	jsonResp, err := json.Marshal(resp)
 	if err != nil {

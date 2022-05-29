@@ -2,15 +2,16 @@ package application
 
 import (
 	"context"
-	"errors"
 	"github.com/go-playground/locales/en"
 	ut "github.com/go-playground/universal-translator"
 	"github.com/go-playground/validator/v10"
 	enTranslations "github.com/go-playground/validator/v10/translations/en"
+	"reflect"
+	"strings"
 )
 
 type Validator interface {
-	Validate(obj any) error
+	Validate(obj any) []ValidationError
 }
 
 type DefaultValidator struct {
@@ -27,14 +28,33 @@ func NewDefaultValidator(logger Logger) Validator {
 	if err != nil {
 		logger.Error(context.Background(), "Cannot register default translations for validator")
 	}
+	validate.RegisterTagNameFunc(func(fld reflect.StructField) string {
+		name := strings.SplitN(fld.Tag.Get("json"), ",", 2)[0]
+		if name == "-" {
+			return ""
+		}
+		return name
+	})
 	return &DefaultValidator{validator: validate, translator: translator}
 }
 
-func (v *DefaultValidator) Validate(obj any) error {
+func (v *DefaultValidator) Validate(obj any) []ValidationError {
 	err := v.validator.Struct(obj)
 	if err != nil {
-		for _, err := range err.(validator.ValidationErrors) {
-			return errors.New(err.Translate(v.translator))
+		if validatorErr, ok := err.(validator.ValidationErrors); ok {
+			result := make([]ValidationError, len(validatorErr))
+			for i, validationError := range validatorErr {
+				result[i] = ValidationError{
+					field: validationError.Field(),
+					err:   validationError.Translate(v.translator),
+				}
+			}
+			return result
+		} else {
+			return []ValidationError{{
+				field: "",
+				err:   err.Error(),
+			}}
 		}
 	}
 	return nil

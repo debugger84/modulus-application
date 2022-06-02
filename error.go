@@ -2,14 +2,31 @@ package application
 
 import "context"
 
-type ActionErrorKey string
+type ErrorIdentifier string
 
-const WrongRequestDecoding ActionErrorKey = "WrongRequestDecoding"
-const InvalidRequest ActionErrorKey = "InvalidRequest"
+const WrongRequestDecoding ErrorIdentifier = "WrongRequestDecoding"
+const InvalidRequest ErrorIdentifier = "InvalidRequest"
+const UnprocessableEntity ErrorIdentifier = "UnprocessableEntity"
+
+type CommonError struct {
+	Identifier ErrorIdentifier
+	Err        string
+}
+
+func (e *CommonError) Error() string {
+	return e.Err
+}
+
+func NewCommonError(identifier ErrorIdentifier, err string) *CommonError {
+	return &CommonError{
+		Identifier: identifier,
+		Err:        err,
+	}
+}
 
 type ActionError struct {
 	Ctx              context.Context
-	Key              ActionErrorKey
+	Identifier       ErrorIdentifier
 	Err              error
 	ValidationErrors []ValidationError
 }
@@ -19,37 +36,59 @@ func (e *ActionError) Error() string {
 }
 
 type ValidationError struct {
-	field string
-	err   string
+	Field string
+	Err   string
+}
+
+func NewValidationError(field string, err string) *ValidationError {
+	return &ValidationError{Field: field, Err: err}
 }
 
 func (e ValidationError) Error() string {
-	return e.err
+	return e.Err
 }
 
-func NewServerError(ctx context.Context, key ActionErrorKey, err error) ActionResponse {
+func NewServerErrorResponse(ctx context.Context, identifier ErrorIdentifier, err error) ActionResponse {
 	return ActionResponse{
 		StatusCode: 500,
 		Error: &ActionError{
 			Ctx:              ctx,
-			Key:              key,
+			Identifier:       identifier,
 			Err:              err,
 			ValidationErrors: nil,
 		},
 	}
 }
 
-func NewValidationError(ctx context.Context, errors []ValidationError) ActionResponse {
+func NewUnprocessableEntityResponse(ctx context.Context, err error) ActionResponse {
+	code := 500
+	identifier := UnprocessableEntity
+	if commonErr, ok := err.(*CommonError); ok {
+		code = 422
+		identifier = commonErr.Identifier
+	}
+	return ActionResponse{
+		StatusCode: code,
+		Error: &ActionError{
+			Ctx:              ctx,
+			Identifier:       identifier,
+			Err:              err,
+			ValidationErrors: nil,
+		},
+	}
+}
+
+func NewValidationErrorResponse(ctx context.Context, errors []ValidationError) ActionResponse {
 	if len(errors) == 0 {
 		errors[0] = ValidationError{
-			err: "Unknown error",
+			Err: "Unknown error",
 		}
 	}
 	return ActionResponse{
 		StatusCode: 400,
 		Error: &ActionError{
 			Ctx:              ctx,
-			Key:              InvalidRequest,
+			Identifier:       InvalidRequest,
 			Err:              errors[0],
 			ValidationErrors: errors,
 		},

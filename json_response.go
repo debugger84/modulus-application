@@ -45,7 +45,7 @@ func (j *DefaultJsonResponseWriter) Error(w http.ResponseWriter, r *http.Request
 	if len(response.Error.ValidationErrors) > 0 {
 		vErrors := make(map[string]string)
 		for _, validationError := range response.Error.ValidationErrors {
-			vErrors[validationError.field] = validationError.err
+			vErrors[validationError.Field] = validationError.Err
 		}
 		resp["errors"] = vErrors
 	}

@@ -89,7 +89,7 @@ func (j *ActionRunner) runPost(
 	var err error
 	err = j.fillRequestFromUrlValues(w, r, request, j.router.RouteParams(r))
 	if err == nil {
-		if r.Header.Get("Content-Type") != "application/json" {
+		if r.Header.Get("Content-Type") == "application/json" {
 			err = j.fillRequestFromBody(w, r, request)
 		} else {
 			err = j.fillRequestFromUrlValues(w, r, request, r.PostForm)
@@ -127,7 +127,7 @@ func (j *ActionRunner) runAction(
 ) {
 	validationErr := j.validator.Validate(request)
 	if validationErr != nil {
-		j.jsonWriter.Error(w, r, NewValidationError(r.Context(), validationErr))
+		j.jsonWriter.Error(w, r, NewValidationErrorResponse(r.Context(), validationErr))
 		return
 	}
 
@@ -162,7 +162,7 @@ func (j *ActionRunner) fillRequestFromBody(
 		err = json.Unmarshal(body, request)
 	}
 	if err != nil {
-		j.jsonWriter.Error(w, r, NewServerError(r.Context(), WrongRequestDecoding, err))
+		j.jsonWriter.Error(w, r, NewServerErrorResponse(r.Context(), WrongRequestDecoding, err))
 		return err
 	}
 
@@ -189,16 +189,13 @@ func (j *ActionRunner) fillRequestFromUrlValues(
 }
 
 func (j *ActionRunner) parseQsError(ctx context.Context, err error) ActionResponse {
-	vErr := ValidationError{
-		field: "",
-		err:   "Wrong format",
-	}
+	vErr := NewValidationError("", "Wrong format")
 	entries := qsErrRegexp.FindStringSubmatch(err.Error())
 	if len(entries) > 1 {
-		vErr.field = entries[1]
+		vErr.Field = entries[1]
 		if len(entries) > 2 && entries[2] == "strconv.ParseInt" {
-			vErr.err = "Should be integer"
+			vErr.Err = "Should be integer"
 		}
 	}
-	return NewValidationError(ctx, []ValidationError{vErr})
+	return NewValidationErrorResponse(ctx, []ValidationError{*vErr})
 }

@@ -44,17 +44,17 @@ func (v *DefaultValidator) Validate(obj any) []ValidationError {
 		if validatorErr, ok := err.(validator.ValidationErrors); ok {
 			result := make([]ValidationError, len(validatorErr))
 			for i, validationError := range validatorErr {
-				result[i] = ValidationError{
-					field: validationError.Field(),
-					err:   validationError.Translate(v.translator),
-				}
+				result[i] = *NewValidationError(
+					validationError.Field(),
+					validationError.Translate(v.translator),
+				)
 			}
 			return result
 		} else {
-			return []ValidationError{{
-				field: "",
-				err:   err.Error(),
-			}}
+			return []ValidationError{*NewValidationError(
+				"",
+				err.Error(),
+			)}
 		}
 	}
 	return nil

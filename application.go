@@ -174,8 +174,8 @@ func (a *Application) setDefaultJsonResponseWriter() {
 }
 
 func (a *Application) setDefaultValidator() {
-	var validator Validator
-	err := a.container.Invoke(func(dep Validator) error {
+	var validator StructValidator
+	err := a.container.Invoke(func(dep StructValidator) error {
 		validator = dep
 		return nil
 	})

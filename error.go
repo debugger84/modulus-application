@@ -7,6 +7,7 @@ type ErrorIdentifier string
 const WrongRequestDecoding ErrorIdentifier = "WrongRequestDecoding"
 const InvalidRequest ErrorIdentifier = "InvalidRequest"
 const UnprocessableEntity ErrorIdentifier = "UnprocessableEntity"
+const UnknownError ErrorIdentifier = "UnknownError"
 
 type CommonError struct {
 	Identifier ErrorIdentifier
@@ -36,12 +37,13 @@ func (e *ActionError) Error() string {
 }
 
 type ValidationError struct {
-	Field string
-	Err   string
+	Field      string
+	Identifier ErrorIdentifier
+	Err        string
 }
 
-func NewValidationError(field string, err string) *ValidationError {
-	return &ValidationError{Field: field, Err: err}
+func NewValidationError(field string, err string, identifier ErrorIdentifier) *ValidationError {
+	return &ValidationError{Field: field, Err: err, Identifier: identifier}
 }
 
 func (e ValidationError) Error() string {

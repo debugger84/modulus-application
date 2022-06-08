@@ -43,11 +43,15 @@ func (j *DefaultJsonResponseWriter) Error(w http.ResponseWriter, r *http.Request
 	}
 
 	if len(response.Error.ValidationErrors) > 0 {
-		vErrors := make(map[string]string)
-		for _, validationError := range response.Error.ValidationErrors {
-			vErrors[validationError.Field] = validationError.Err
+		vErrors := make([]map[string]string, len(response.Error.ValidationErrors))
+		for i, validationError := range response.Error.ValidationErrors {
+			vErrors[i] = map[string]string{
+				"id":      string(validationError.Identifier),
+				"field":   string(validationError.Field),
+				"message": validationError.Err,
+			}
 		}
-		resp["errors"] = vErrors
+		resp["invalidInputs"] = vErrors
 	}
 
 	jsonResp, err := json.Marshal(resp)

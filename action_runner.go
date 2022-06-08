@@ -16,7 +16,6 @@ type ActionRunner struct {
 	logger     Logger
 	jsonWriter JsonResponseWriter
 	router     Router
-	validator  Validator
 }
 
 type ActionResponse struct {
@@ -40,8 +39,8 @@ func NewSuccessCreationResponse(response any) ActionResponse {
 	}
 }
 
-func NewActionRunner(logger Logger, jsonWriter JsonResponseWriter, router Router, validator Validator) *ActionRunner {
-	return &ActionRunner{logger: logger, jsonWriter: jsonWriter, router: router, validator: validator}
+func NewActionRunner(logger Logger, jsonWriter JsonResponseWriter, router Router) *ActionRunner {
+	return &ActionRunner{logger: logger, jsonWriter: jsonWriter, router: router}
 }
 
 func (j *ActionRunner) Run(
@@ -125,10 +124,12 @@ func (j *ActionRunner) runAction(
 	action func(ctx context.Context, request any) ActionResponse,
 	request any,
 ) {
-	validationErr := j.validator.Validate(request)
-	if validationErr != nil {
-		j.jsonWriter.Error(w, r, NewValidationErrorResponse(r.Context(), validationErr))
-		return
+	if validator, ok := request.(ValidatableStruct); ok {
+		validationErr := validator.Validate(r.Context())
+		if validationErr != nil {
+			j.jsonWriter.Error(w, r, NewValidationErrorResponse(r.Context(), validationErr))
+			return
+		}
 	}
 
 	response := action(r.Context(), request)
@@ -189,7 +190,7 @@ func (j *ActionRunner) fillRequestFromUrlValues(
 }
 
 func (j *ActionRunner) parseQsError(ctx context.Context, err error) ActionResponse {
-	vErr := NewValidationError("", "Wrong format")
+	vErr := NewValidationError("", "Wrong format", InvalidRequest)
 	entries := qsErrRegexp.FindStringSubmatch(err.Error())
 	if len(entries) > 1 {
 		vErr.Field = entries[1]
